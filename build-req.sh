@@ -216,7 +216,7 @@ mv -v ./zeppelin-0.9.0-preview1-bin-all ./zeppelin
 mv -v ./zeppelin/* $ZEPPELIN_HOME
 sudo cat > $ZEPPELIN_HOME/conf/zeppelin-env.sh << EOF
 export JAVA_HOME=$JAVA_HOME
-export MASTER=spark://msr:7077
+export MASTER=spark://$HOSTNAME:7077
 export ZEPPELIN_PORT=8888
 export SPARK_HOME=$SPARK_HOME
 export SPARK_CONF_DIR=$SPARK_CONF_DIR
