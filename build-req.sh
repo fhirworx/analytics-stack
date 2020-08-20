@@ -3,22 +3,24 @@ sudo hostnamectl set-hostname msr
 #Allow user to run all as root
 sudo usermod -G wheel -a $USER
 #Add Pre-requisites
-sudo swupd bundle-add buildreq-spark nginx jupyter conda
+sudo swupd bundle-add buildreq-spark nginx jupyter conda java11-basic
 sudo updatedb
 #sudo pip3 install for transferring keys
 sudo pip3 install pssh
 #Set SSH Keys
 cat /dev/zero | ssh-keygen -q -N "" > /dev/null
 cat ~/.ssh/id_rsa.pub | pssh -h ips.txt -l remoteuser -A -I -i 'umask 077; mkdir -p ~/.ssh; afile=~/.ssh/authorized_keys; cat - >> $afile; sort -u $afile -o $afile'
+mkdir -p /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes} sudo chown -R /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes} ${USER}
+sudo mkdir -p /var/log/{hadoop/pid,spark,zep/pid} && sudo chown -R /var/log/{hadoop/pid,spark,zep/pid} ${USER}
+sudo mkdir -p /etc/{hadoop,spark,zep} && sudo chown -R /etc/{hadoop,spark,zep} ${USER}
 #add env vars
-sudo mkdir /opt/stack
 sudo cat /etc/profile << EOF
 export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk
 export JAVA=$JAVA_HOME/bin/java
 export JAVAC=$JAVA_HOME/bin/javac
 export JAVAH=$JAVA_HOME/bin/javah
 export JAR=$JAVA_HOME/bin/jar
-export DEV_HOME=opt/stack
+export DEV_HOME=/opt/
 export HADOOPHOME=$DEV_HOME/hadoop
 export HADOOP_INSTALL=$HADOOPHOME
 export HADOOP_MAPRED_HOME=$HADOOPHOME
@@ -28,25 +30,29 @@ export HADOOP_YARN_HOME=$HADOOPHOME
 export HADOOP_CONF_DIR=/etc/hadoop
 export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOPHOME/lib/native
 export HADOOP_DEFAULT_LIBEXEC_DIR=$HADOOPHOME/libexec
-export HADOOP_IDENT_STRING=hadoop
+export HADOOP_IDENT_STRING=${USER}
 export HADOOP_LOG_DIR=/var/log/hadoop
 export HADOOP_PID_DIR=/var/log/hadoop/pid
 export HADOOP_OPTS="-Djava.library.path=/opt/stack/hadoop/lib/native"
-export HDFS_DATANODE_USER=hadoop
-export HDFS_NAMENODE_USER=hadoop
-export HDFS_SECONDARYNAMENODE_USER=hadoop
+export HDFS_DATANODE_USER=${USER}
+export HDFS_NAMENODE_USER=${USER}
+export HDFS_SECONDARYNAMENODE_USER=${USER}
 export SPARK_HOME=$DEV_HOME/spark
 export SPARK_CONF_DIR=/etc/spark
-export YARN_RESOURCEMANAGER_USER=hadoop
-export YARN_NODEMANAGER_USER=hadoop
-export ZEPPELIN_HOME=$DEV_HOME/zeppelin
+export YARN_RESOURCEMANAGER_USER=${USER}
+export YARN_NODEMANAGER_USER=${USER}
+export ZEPPELIN_HOME=$DEV_HOME/zep
 export PYSPARK_PYTHON=$SPARK_HOME/python/pyspark
-export PYTHONPATH=$PYTHONPATH:$SPARK_HOME/python:/usr/bin/python
+export PYTHONPATH=$PYTHONPATH:$SPARK_HOME/python:/usr/bin/ipython3
 export R_HOME=/usr/lib64/R
-export PATH=$JAVA_HOME/bin:$HADOOPHOME/sbin:$HADOOPHOME/bin:$R_HOME:$PATH
+export PATH=$JAVA_HOME/bin:$HADOOPHOME/sbin:$HADOOPHOME/bin:$SPARK_HOME/bin:$SPARK_HOME/sbin:$ZEPPELIN_HOME/bin:$R_HOME:$PATH
 EOF
 popd
-mkdir $DEV_HOME
+#DARS config
+sudo cat > /etc/dars.ld.so.conf << EOF
+/usr/lib64/haswell/avx512_1
+EOF
+sudo ldconfig
 #Get Spark
 cd $DEV_HOME
 wget https://downloads.apache.org/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
@@ -54,38 +60,25 @@ tar xvf spark-3.0.0-bin-hadoop2.7.tgz
 rm spark-3.0.0-bin-hadoop2.7.tgz
 mv spark-3.0.0-bin-hadoop2.7 $SPARK_HOME
 #Spark
-sudo useradd spark
-sudo passwd spark #figure out how to automate
-sudo usermod -G wheel -a spark
-sudo chown -R $SPARK_HOME/* spark
 #set system unit file master
-sudo cat /etc/systemd/system/spark-master.service << EOF
+sudo cat /etc/systemd/system/spark.service << EOF
 [Unit]
-Description=Apache Spark Master
-After=network.target
+Description=Spark
+After=syslog.target network.target network-online.target
+Requires=network-online.target
 
 [Service]
+User=${USER}
+Group=${USER}
 Type=forking
-User=spark
-Group=wheel
-ExecStart=/opt/spark/sbin/start-master.sh
-ExecStop=/opt/spark/sbin/stop-master.sh
-
-[Install]
-WantedBy=multi-user.target
-EOF
-#set system unit file worker
-sudo cat /etc/systemd/system/spark-slave.service <<EOF
-[Unit]
-Description=Apache Spark Slave
-After=network.target
-
-[Service]
-Type=forking
-User=spark
-Group=wheel
-ExecStart=/opt/spark/sbin/start-slave.sh spark://$HOSTNAME:7077
-ExecStop=/opt/spark/sbin/stop-slave.sh
+ExecStart=/opt/spark/sbin/start-all.sh
+ExecStop=/opt/spark/sbin/stop-all.sh
+WorkingDirectory=$DEV_HOME
+Environment=JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk
+Environment=SPARK_HOME=$SPARK_HOME
+Environment=HADOOP_COMMON_HOME=$HADOOP_COMMON_HOME
+TimeoutStartSec=2min
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
@@ -101,93 +94,166 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOPHOME/lib/native
 SPARK_MASTER_HOST=$HOSTNAME
 EOF
 sudo cp /etc/spark/log4j.properties.template /etc/spark/log4j.properties
-#Edit the /etc/spark/spark-defaults.conf file and update the spark.master variable with the SPARK_MASTER_HOST address and port 7077.
-sudo cat $SPARK_CONF_DIR/spark-defaults.conf << EOF
-spark.master    spark://$HOSTNAME:7077
+sudo cat > $SPARK_CONF_DIR/spark-defaults.conf << EOF
+spark.master                     	yarn
+spark.submit.deployMode			cluster
+spark.eventLog.enabled           	true
+spark.eventLog.dir               	hdfs://namenode:8021/spark-logs
+spark.serializer                 	org.apache.spark.serializer.KryoSerializer
+spark.driver.memory              	24g
+spark.executor.memory		  	7g
+spark.executor.userClassPathFirst	true
+spark.pyspark.python			/usr/bin/ipython3
+#spark.driver.log.dfsDir	
+spark.yarn.jars /opt/spark/jars
+spark.yarn.populateHadoopClasspath false
+yarn.nodemanager.local-dirs /opt/hadoop/etc/hadoop
+spark.driverEnv.JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk
+spark.driverEnv.YARN_CONF_DIR=/opt/hadoop/etc/hadoop
+spark.executorEnv.JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk
+spark.executorEnv.YARN_CONF_DIR=/opt/hadoop/etc/hadoop
+spark.driver.extraJavaOptions -Dio.netty.tryReflectionSetAccessible=true -Djava.library.path=/opt/hadoop/lib/native
+spark.executor.extraJavaOptions -Dio.netty.tryReflectionSetAccessible=true -Djava.library.path=/opt/hadoop/lib/native
 EOF
 #setup R packages for SparkR
 sudo Rscript -e "install.packages(c('rJava','sparklyr', 'IRkernel', 'tm', 'openNLP', 'RWeka', 'shiny', 'officer', 'rio', 'knitr', 'rmarkdown', 'devtools', 'testthat', 'e1071', 'survival', 'ggplot2', 'mplot', 'googleVis','glmnet', 'pROC', 'data.table', 'caret', 'sqldf', 'wordcloud') repos='https://cloud.r-project.org/')"
 #Start the master server:
 sudo systemctl daemon-reload
-sudo systmectl enable spark-master.service --now
-sudo systemctl start spark-master.service
-#sudo $SPARK_HOME/sbin/start-master.sh
-#Start one worker daemon and connect it to the master using the spark.master variable defined earlier:
-sudo systemctl start spark-slave.service
-#sudo $SPARK_HOME/sbin/start-slave.sh spark://$HOSTNAME:7077
+sudo systmectl enable spark.service --now
+sudo systemctl start spark.service
 #Hadoop
-sudo mkdir /etc/hadoop
-sudo mkdir /var/log/hadoop
-sudo useradd hadoop
-sudo passwd hadoop #figure out how to automate this
-sudo usermod -G wheel -a hadoop
-sudo chown -R hadoop:wheel /var/log/hadoop/*
-sudo chown -R hadoop:wheel $HADOOPHOME/*
-su - hadoop
-ssh-keygen -t rsa
-cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
 ssh localhost #f/u automate 
-su - hadoop
 cd $DEV_HOME
 wget http://mirror.cc.columbia.edu/pub/software/apache/hadoop/common/hadoop-3.3.0/hadoop-3.3.0.tar.gz
 tar xvf hadoop-3.3.0.tar.gz
 rm hadoop-3.3.0.tar.gz
 mv hadoop-3.3.0 $HADOOPHOME
-sudo cp -r $HADOOPHOME/etc/hadoop/* /etc/hadoop
 cd $HOME
-mkdir -p ~/hadoopdata/hdfs/namenode
-mkdir -p ~/hadoopdata/hdfs/datanode
-#/etc/hadoop/core-site.xml
-sudo cat /etc/hadoop/core-site.xml << EOF
+#Hadoop core-site
+sudo cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 <configuration>
 	<property>
-		<name>fs.default.name</name>
-		<value>hdfs://$HOSTNAME:9000</value>
+		<name>fs.defaultFS</name>
+		<value>hdfs://msr:9820/</value>
+		<description>NameNode URI</description>
+	</property>
+	<property>
+		<name>io.file.buffer.size</name>
+		<value>131072</value>
+		<description>Buffer size</description>
 	</property>
 </configuration>
 EOF
-#/etc/hadoop/hdfs-site.xml
-sudo cat /etc/hadoop/hdfs-site.xml << EOF
+#HDFS
+sudo cat > $HADOOP_CONF_DIR/hdfs-site.xml << EOF
 <configuration>
+	<property>
+		<name>dfs.namenode.name.dir</name>
+		<value>file:///opt/hdfs/namenode</value>
+		<description>NameNode directory for namespace and transaction logs storage.</description>
+	</property>
+	<property>
+		<name>dfs.datanode.data.dir</name>
+		<value>file:///opt/hdfs/datanode</value>
+		<description>DataNode directory</description>
+	</property>
 	<property>
 		<name>dfs.replication</name>
-		<value>1</value>
+		<value>1</value></property>
+	<property>
+		<name>dfs.permissions</name>
+		<value>false</value>
 	</property>
 	<property>
-                <name>dfs.name.dir</name>
-                <value>file:///home/hadoop/hadoopdata/hdfs/namenode</value>
-        </property>
-        <property>
-                <name>dfs.data.dir</name>
-                <value>file:///home/hadoop/hadoopdata/hdfs/datanode</value>
-        </property>
+		<name>dfs.datanode.use.datanode.hostname</name>
+		<value>true</value>
+	</property>
+	<property>
+		<name>dfs.namenode.datanode.registration.ip-hostname-check</name>
+		<value>false</value>
+	</property>
 </configuration>
 EOF
-#/etc/hadoop/mapred-site.xml
-sudo cat /etc/hadoop/mapred-site.xml << EOF
+#map reduce
+sudo cat $HADOOP_CONF_DIR/mapred-site.xml << EOF
 <configuration>
 	<property>
 		<name>mapreduce.framework.name</name>
 		<value>yarn</value>
+		<description>MapReduce framework name</description>
+	</property>
+	<property>
+		<name>mapreduce.jobhistory.address</name>
+		<value>msr:10020</value>
+		<description>Default port is 10020.</description>
+	</property>
+	<property>
+		<name>mapreduce.jobhistory.webapp.address</name>
+		<value>msr:19888</value>
+		<description>Default port is 19888.</description>
+	</property>
+	<property>
+		<name>mapreduce.jobhistory.intermediate-done-dir</name>
+		<value>/mr-history/tmp</value>
+		<description>Directory where history files are written by MapReduce jobs.</description>
+	</property>
+	<property>
+		<name>mapreduce.jobhistory.done-dir</name>
+		<value>/mr-history/done</value>
+		<description>Directory where history files are managed by the MR JobHistory Server.</description>
 	</property>
 </configuration>
 EOF
-#/etc/hadoop/yarn-site.xml
-sudo cat /etc/hadoop/yarn-site.xml << EOF
+sudo cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
 <configuration>
+	<property>
+ 		<name>yarn.resourcemanager.hostname</name>
+		<value>msr</value>
+	</property>
 	<property>
 		<name>yarn.nodemanager.aux-services</name>
 		<value>mapreduce_shuffle</value>
+		<description>Yarn Node Manager Aux Service</description>
+	</property>
+	<property>
+		<name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
+		<value>org.apache.hadoop.mapred.ShuffleHandler</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.local-dirs</name>
+		<value>file:///opt/yarn/local</value>
+	</property>
+	<property>
+		<name>yarn.nodemanager.log-dirs</name>
+		<value>file:///opt/yarn/logs</value>
 	</property>
 </configuration>
 EOF
 #workers /etc/hadoop/workers
-sudo cat /etc/hadoop/workers << EOF
-$HOSTNAME
+sudo cat $HADOOP_CONF_DIR/workers << EOF
+msr
+nu1
+nu2
+nu3
+nu4
+nu5
+nu6
+nu7
+nu8
+nu9
+nu10
 EOF
 sudo cp $HADOOPHOME/log4j.properties /etc/hadoop
-sudo cat /etc/hadoop/hadoop-env.sh << EOF
-JAVA_HOME=$JAVA_HOME
+sudo cat $HADOOP_CONF_DIR/hadoop-env.sh << EOF
+export JAVA_HOME=$JAVA_HOME
+export HADOOP_HOME=$HADOOPHOME
+export HADOOP_LIBEXEC_DIR=$HADOOP_HOME/libexec
+export HADOOP_CONF_DIR=$HADOOP_CONF_DIR
+export HDFS_NAMENODE_USER=${USER}
+export HDFS_DATANODE_USER=${USER}
+export HDFS_SECONDARYNAMENODE_USER=${USER}
+export YARN_RESOURCEMANAGER_USER=${USER}
+export YARN_NODEMANAGER_USER=${USER}
 EOF
 #format NameNode
 ssh-copy-id localhost
@@ -196,18 +262,29 @@ $HADOOPHOME/bin/hdfs namenode -format
 $HADOOPHOME/sbin/start-dfs.sh
 #start YARN daemons @8088
 $HADOOPHOME/sbin/start-yarn.sh
+#setup hadoop system unit
+sudo cat /etc/systemd/system/hadoop.service << EOF
+[Unit]
+Description=Hadoop DFS namenode and datanode plus yarn resouce manager and node manager
+After=syslog.target network.target network-online.target
+Requires=network-online.target
+
+[Service]
+User=${USER}
+Group=${USER}
+Type=forking
+ExecStart=/opt/hadoop/sbin/start-all.sh
+ExecStop=/opt/hadoop/sbin/stop-all.sh
+WorkingDirectory=/opt
+Environment=JAVA_HOME=$JAVA_HOME
+Environment=HADOOP_COMMON_HOME=$HADOOP_COMMON_HOME
+TimeoutStartSec=2min
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
 #zeppelin
-cd $DEV_HOME
-sudo mkdir /var/log/zeppelin
-sudo mkdir /var/log/zeppelin/pid
-sudo mkdir /usr/share/zep
-sudo chmod -R 777 /usr/share/zep
-sudo useradd $ZEPPELIN_HOME zeppelin
-sudo passwd zeppelin
-sudo usermod -G wheel -a zeppelin
-sudo chown -R zeppelin $DEV_HOME/zeppelin
-sudo chown -R zeppelin $DEV_HOME/zeppelin
-su - zeppelin
 cd $ZEPPELIN_HOME
 wget https://downloads.apache.org/zeppelin/zeppelin-0.9.0-preview1/zeppelin-0.9.0-preview1-bin-all.tgz
 tar xvf zeppelin-0.9.0-preview1-bin-all.tgz
@@ -216,7 +293,7 @@ mv -v ./zeppelin-0.9.0-preview1-bin-all ./zeppelin
 mv -v ./zeppelin/* $ZEPPELIN_HOME
 sudo cat > $ZEPPELIN_HOME/conf/zeppelin-env.sh << EOF
 export JAVA_HOME=$JAVA_HOME
-export MASTER=spark://$HOSTNAME:7077
+export MASTER=yarn-cluster
 export ZEPPELIN_PORT=8888
 export SPARK_HOME=$SPARK_HOME
 export SPARK_CONF_DIR=$SPARK_CONF_DIR
@@ -225,7 +302,7 @@ export PYTHONPATH=$PYTHONPATH
 export HADOOP_CONF_DIR=$HADOOP_CONF_DIR
 export ZEPPELIN_NOTEBOOK_DIR=$ZEPPELIN_NOTEBOOK_DIR
 export ZEPPELIN_SERVER_DEFAULT_DIR_ALLOWED=true
-export ZEPPELIN_NOTEBOOK_DIR=/usr/share/zep
+export ZEPPELIN_NOTEBOOK_DIR=$ZEPPELIN_HOME/notes
 export ZEPPELIN_INTERPRETER_DIR=$ZEPPELIN_HOME/interpreter
 EOF
 #set system unit file for zeppelin
@@ -236,21 +313,18 @@ After=syslog.target network.target
 
 [Service]
 Type=forking
-ExecStart=$ZEPPELIN_HOME/bin/zeppelin-daemon.sh --config /etc/zeppelin start
+ExecStart=$ZEPPELIN_HOME/bin/zeppelin-daemon.sh --config /etc/zep start
 ExecStop=$ZEPPELIN_HOME/bin/zeppelin-daemon.sh stop
 ExecReload=$ZEPPELIN_HOME/bin/zeppelin-daemon.sh reload
-User=zeppelin
-Group=wheel
+User=${USER}
+Group=${USER}
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 EOF
 sudo jupyter notebook --generate-config
-#cd $ZEPPELIN_HOME/bin/zeppelin-daemon.sh --config /etc/zeppelin start
-#f/u script out changing below template to reflect accurrate 8888 zeppelin port
 #f/u check SPARKR_RLIBDIR
-su - zeppelin
 #Zotero
 wget https://www.zotero.org/download/client/dl?channel=release&platform=linux-x86_64&version=5.0.89
 tar xvf Zotero-5.0.89_linux-x86_64.tar.bz2
@@ -292,8 +366,8 @@ sudo swupd bundle-add mixer
 mixer init
 #~/mixer/buidler.conf
 sudo tee -a ~/mixer/builder.conf >> EOF
-CONTENTURL="http://192.168.122.232"
-VERSIONURL="http://192.168.122.232"
+CONTENTURL="http://${HOSTNMAE -I}"
+VERSIONURL="http://${HOSTNAME -I}"
 EOF
 
 #Make Nginx for Mixer/Bundle Creation
