@@ -6,6 +6,7 @@ sudo usermod -G wheel -a $USER
 sudo swupd bundle-add buildreq-spark nginx jupyter conda java11-basic
 sudo updatedb
 #sudo pip3 install for transferring keys
+systemctl enable --now sshd.service
 sudo pip3 install pssh
 #Set SSH Keys
 cat /dev/zero | ssh-keygen -q -N "" > /dev/null
