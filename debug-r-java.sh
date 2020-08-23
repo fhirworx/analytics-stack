@@ -2,6 +2,18 @@
 sudo mkdir /etc/profile.d && sudo chown -R ${USER} /etc/profile.d
 cat > /etc/profile.d/r.sh << EOF
 export R_HOME=/opt/R/
+export R_LD_LIBRARY_PATH=/opt/R/lib
+EOF
+cat > /etc/profile.d/java.sh << EOF
+export JAVA_HOME=/opt/java
+export JAVA=$JAVA_HOME/bin/java
+export JAVAC=$JAVA_HOME/bin/javac
+export JAVAH=$JAVA_HOME/bin/javah
+export JAR=$JAVA_HOME/bin/jar
+export _JAVA_OPTIONS="-Dio.netty.tryReflectionSetAccessible=true"
+EOF
+cat > /etc/profile.d/env.sh << EOF
+export PATH="$JAVA_HOME/bin:$R_HOME/bin:$PATH"
 EOF
 #download from source, unpack, and compile
 cd /opt
@@ -16,5 +28,7 @@ wget https://stat.ethz.ch/R/daily/R-patched.tar.gz
 tar xvf R-patched.tar.gz
 mv R-patched R && rm R-patched.tar.gz
 cd R_HOME
-./configure
+./configure --prefix=opt
 make
+make install
+R CMD javareconf
