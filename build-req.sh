@@ -11,11 +11,11 @@ sudo pip3 install pssh
 #Set SSH Keys
 cat /dev/zero | ssh-keygen -q -N "" > /dev/null
 cat ~/.ssh/id_rsa.pub | pssh -h ips.txt -l remoteuser -A -I -i 'umask 077; mkdir -p ~/.ssh; afile=~/.ssh/authorized_keys; cat - >> $afile; sort -u $afile -o $afile'
-mkdir -p /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes} sudo chown -R /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes} ${USER}
-sudo mkdir -p /var/log/{hadoop/pid,spark,zep/pid} && sudo chown -R /var/log/{hadoop/pid,spark,zep/pid} ${USER}
-sudo mkdir -p /etc/{hadoop,spark,zep} && sudo chown -R /etc/{hadoop,spark,zep} ${USER}
+mkdir -p /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes} && sudo chown -R ${USER} /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes}
+sudo mkdir -p /var/log/{hadoop/pid,spark,zep/pid} && sudo chown -R ${USER} /var/log/{hadoop/pid,spark,zep/pid}
+sudo mkdir -p /etc/{hadoop,spark,zep} && sudo chown -R ${USER} /etc/{hadoop,spark,zep}
 #add env vars
-sudo cat /etc/profile << EOF
+cat > /etc/profile << EOF
 export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk
 export JAVA=$JAVA_HOME/bin/java
 export JAVAC=$JAVA_HOME/bin/javac
@@ -34,7 +34,7 @@ export HADOOP_DEFAULT_LIBEXEC_DIR=$HADOOPHOME/libexec
 export HADOOP_IDENT_STRING=${USER}
 export HADOOP_LOG_DIR=/var/log/hadoop
 export HADOOP_PID_DIR=/var/log/hadoop/pid
-export HADOOP_OPTS="-Djava.library.path=/opt/stack/hadoop/lib/native"
+export HADOOP_OPTS="-Djava.library.path=/opt/hadoop/lib/native"
 export HDFS_DATANODE_USER=${USER}
 export HDFS_NAMENODE_USER=${USER}
 export HDFS_SECONDARYNAMENODE_USER=${USER}
@@ -55,14 +55,14 @@ sudo cat > /etc/dars.ld.so.conf << EOF
 EOF
 sudo ldconfig
 #Get Spark
-cd $DEV_HOME
 wget https://downloads.apache.org/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
 tar xvf spark-3.0.0-bin-hadoop2.7.tgz
 rm spark-3.0.0-bin-hadoop2.7.tgz
-mv spark-3.0.0-bin-hadoop2.7 $SPARK_HOME
+mv spark-3.0.0-bin-hadoop2.7 $DEV_HOME/spark
 #Spark
 #set system unit file master
-sudo cat /etc/systemd/system/spark.service << EOF
+sudo -i
+cat > /etc/systemd/system/spark.service << EOF
 [Unit]
 Description=Spark
 After=syslog.target network.target network-online.target
@@ -84,8 +84,6 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-#create configuration directory
-sudo mkdir /etc/spark
 #copy templates
 sudo cp $SPARK_HOME/conf/* $SPARK_CONF_DIR
 sudo cp $SPRK_CONF_DIR/log4j.properties.template $SPARK_CONF_DIR/log4j.properties
