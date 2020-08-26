@@ -55,6 +55,7 @@ sudo cat > /etc/dars.ld.so.conf << EOF
 EOF
 sudo ldconfig
 #Get Spark
+cd $HOME
 wget https://downloads.apache.org/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
 tar xvf spark-3.0.0-bin-hadoop2.7.tgz
 rm spark-3.0.0-bin-hadoop2.7.tgz
@@ -86,16 +87,15 @@ WantedBy=multi-user.target
 EOF
 #copy templates
 sudo cp $SPARK_HOME/conf/* $SPARK_CONF_DIR
-sudo cp $SPRK_CONF_DIR/log4j.properties.template $SPARK_CONF_DIR/log4j.properties
+sudo cp $SPARK_CONF_DIR/log4j.properties.template $SPARK_CONF_DIR/log4j.properties
 #copy templates to create custom configuration files
-sudo cat $SPARK_CONF_DIR/spark-env.sh << EOF
+sudo cat > $SPARK_CONF_DIR/spark-env.sh << EOF
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOPHOME/lib/native
 SPARK_MASTER_HOST=$HOSTNAME
 EOF
-sudo cp /etc/spark/log4j.properties.template /etc/spark/log4j.properties
 sudo cat > $SPARK_CONF_DIR/spark-defaults.conf << EOF
 spark.master                     	yarn
-spark.submit.deployMode			cluster
+spark.submit.deployMode                 cluster
 spark.eventLog.enabled           	true
 spark.eventLog.dir               	hdfs://namenode:8021/spark-logs
 spark.serializer                 	org.apache.spark.serializer.KryoSerializer
@@ -122,7 +122,7 @@ sudo systmectl enable spark.service --now
 sudo systemctl start spark.service
 #Hadoop
 ssh localhost #f/u automate 
-cd $DEV_HOME
+cd $HOME
 wget http://mirror.cc.columbia.edu/pub/software/apache/hadoop/common/hadoop-3.3.0/hadoop-3.3.0.tar.gz
 tar xvf hadoop-3.3.0.tar.gz
 rm hadoop-3.3.0.tar.gz
@@ -174,7 +174,7 @@ sudo cat > $HADOOP_CONF_DIR/hdfs-site.xml << EOF
 </configuration>
 EOF
 #map reduce
-sudo cat $HADOOP_CONF_DIR/mapred-site.xml << EOF
+sudo cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
 <configuration>
 	<property>
 		<name>mapreduce.framework.name</name>
@@ -229,7 +229,7 @@ sudo cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
 </configuration>
 EOF
 #workers /etc/hadoop/workers
-sudo cat $HADOOP_CONF_DIR/workers << EOF
+sudo cat > $HADOOP_CONF_DIR/workers << EOF
 msr
 nu1
 nu2
@@ -243,10 +243,10 @@ nu9
 nu10
 EOF
 sudo cp $HADOOPHOME/log4j.properties /etc/hadoop
-sudo cat $HADOOP_CONF_DIR/hadoop-env.sh << EOF
+sudo cat > $HADOOP_CONF_DIR/hadoop-env.sh << EOF
 export JAVA_HOME=$JAVA_HOME
 export HADOOP_HOME=$HADOOPHOME
-export HADOOP_LIBEXEC_DIR=$HADOOP_HOME/libexec
+export HADOOP_LIBEXEC_DIR=$HADOOPHOME/libexec
 export HADOOP_CONF_DIR=$HADOOP_CONF_DIR
 export HDFS_NAMENODE_USER=${USER}
 export HDFS_DATANODE_USER=${USER}
@@ -262,7 +262,8 @@ $HADOOPHOME/sbin/start-dfs.sh
 #start YARN daemons @8088
 $HADOOPHOME/sbin/start-yarn.sh
 #setup hadoop system unit
-sudo cat /etc/systemd/system/hadoop.service << EOF
+sudo -i
+cat > /etc/systemd/system/hadoop.service << EOF
 [Unit]
 Description=Hadoop DFS namenode and datanode plus yarn resouce manager and node manager
 After=syslog.target network.target network-online.target
@@ -284,13 +285,13 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 #zeppelin
-cd $ZEPPELIN_HOME
+cd $HOME
 wget https://downloads.apache.org/zeppelin/zeppelin-0.9.0-preview1/zeppelin-0.9.0-preview1-bin-all.tgz
 tar xvf zeppelin-0.9.0-preview1-bin-all.tgz
 rm zeppelin-0.9.0-preview1-bin-all.tgz
 mv -v ./zeppelin-0.9.0-preview1-bin-all ./zeppelin
 mv -v ./zeppelin/* $ZEPPELIN_HOME
-sudo cat > $ZEPPELIN_HOME/conf/zeppelin-env.sh << EOF
+cat > $ZEPPELIN_HOME/conf/zeppelin-env.sh << EOF
 export JAVA_HOME=$JAVA_HOME
 export MASTER=yarn-cluster
 export ZEPPELIN_PORT=8888
@@ -305,7 +306,8 @@ export ZEPPELIN_NOTEBOOK_DIR=$ZEPPELIN_HOME/notes
 export ZEPPELIN_INTERPRETER_DIR=$ZEPPELIN_HOME/interpreter
 EOF
 #set system unit file for zeppelin
-sudo cat /etc/systemd/system/zeppelin.service << EOF
+sudo -i
+cat > /etc/systemd/system/zeppelin.service << EOF
 [Unit]
 Description=Zeppelin service
 After=syslog.target network.target
@@ -412,6 +414,7 @@ chmod +x user-setup.sh
 git config --global user.email "admin@krisc.dev"
 git config --global user.name "krisc"
 
+#Work in progres... figure out how to bundle above
 #krisc@nu1~/mixer $
 mixer bundle create spark --local
 echo "content($SPARK_HOME/)" >> local-bundles/spark
