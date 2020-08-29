@@ -15,42 +15,43 @@ mkdir -p /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes
 sudo mkdir -p /var/log/{hadoop/pid,spark,zep/pid} && sudo chown -R ${USER} /var/log/{hadoop/pid,spark,zep/pid}
 sudo mkdir -p /etc/{hadoop,spark,zep} && sudo chown -R ${USER} /etc/{hadoop,spark,zep}
 #add env vars
-cat > /etc/profile << EOF
+sudo tee -a /etc/profile <<'EOF'
 export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk
-export JAVA=$JAVA_HOME/bin/java
-export JAVAC=$JAVA_HOME/bin/javac
-export JAVAH=$JAVA_HOME/bin/javah
-export JAR=$JAVA_HOME/bin/jar
+export JAVA="$JAVA_HOME/bin/java"
+export JAVAC="$JAVA_HOME/bin/javac"
+export JAVAH="$JAVA_HOME/bin/javac -h"
+export JAR="$JAVA_HOME/bin/jar"
 export DEV_HOME=/opt/
-export HADOOPHOME=$DEV_HOME/hadoop
-export HADOOP_INSTALL=$HADOOPHOME
-export HADOOP_MAPRED_HOME=$HADOOPHOME
-export HADOOP_COMMON_HOME=$HADOOPHOME
-export HADOOP_HDFS_HOME=$HADOOPHOME
-export HADOOP_YARN_HOME=$HADOOPHOME
+export HADOOP_HOME="$DEV_HOME/hadoop"
+export HADOOP_INSTALL="$HADOOP_HOME"
+export HADOOP_MAPRED_HOME="$HADOOP_HOME"
+export HADOOP_COMMON_HOME="$HADOOP_HOME"
+export HADOOP_HDFS_HOME="$HADOOP_HOME"
+export HADOOP_YARN_HOME="$HADOOP_HOME"
 export HADOOP_CONF_DIR=/etc/hadoop
-export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOPHOME/lib/native
-export HADOOP_DEFAULT_LIBEXEC_DIR=$HADOOPHOME/libexec
+export HADOOP_COMMON_LIB_NATIVE_DIR="$HADOOP_HOME/lib/native"
+export HADOOP_DEFAULT_LIBEXEC_DIR="$HADOOP_HOME/libexec"
 export HADOOP_IDENT_STRING=${USER}
 export HADOOP_LOG_DIR=/var/log/hadoop
 export HADOOP_PID_DIR=/var/log/hadoop/pid
-export HADOOP_OPTS="-Djava.library.path=/opt/hadoop/lib/native"
+export HADOOP_OPTS="-Djava.library.path=/opt/hadoop/lib/native -Dio.netty.tryReflectionSetAccessible=true"
 export HDFS_DATANODE_USER=${USER}
 export HDFS_NAMENODE_USER=${USER}
 export HDFS_SECONDARYNAMENODE_USER=${USER}
-export SPARK_HOME=$DEV_HOME/spark
+export SPARK_HOME="$DEV_HOME/spark"
 export SPARK_CONF_DIR=/etc/spark
 export YARN_RESOURCEMANAGER_USER=${USER}
 export YARN_NODEMANAGER_USER=${USER}
-export ZEPPELIN_HOME=$DEV_HOME/zep
-export PYSPARK_PYTHON=$SPARK_HOME/python/pyspark
-export PYTHONPATH=$PYTHONPATH:$SPARK_HOME/python:/usr/bin/ipython3
+export ZEPPELIN_HOME="$DEV_HOME/zep"
+export PYSPARK_PYTHON="$SPARK_HOME/python/pyspark"
+export PYTHONPATH="$PYTHONPATH:$SPARK_HOME/python:/usr/bin/ipython3"
 export R_HOME=/usr/lib64/R
-export PATH=$JAVA_HOME/bin:$HADOOPHOME/sbin:$HADOOPHOME/bin:$SPARK_HOME/bin:$SPARK_HOME/sbin:$ZEPPELIN_HOME/bin:$R_HOME:$PATH
+export R_LIBS_USER=/opt/r
+export PATH="$JAVA_HOME/bin:$HADOOPHOME/sbin:$HADOOPHOME/bin:$SPARK_HOME/bin:$SPARK_HOME/sbin:$ZEPPELIN_HOME/bin:$R_HOME:$PATH"
 EOF
 popd
 #DARS config
-sudo cat > /etc/dars.ld.so.conf << EOF
+sudo tee -a /etc/dars.ld.so.conf <<'EOF'
 /usr/lib64/haswell/avx512_1
 EOF
 sudo ldconfig
