@@ -1,7 +1,7 @@
 # analytics-stack
 This is a parking lot for code used in a hobby-only setup of ClearLinux OS on bare metal. Nothing useful for production here.
 
-The use case is to setup a home lab, which runs a YARN managed Hadoop/HDFS/Spark cluster accessed through Zeppelin/Rstudio. All software used will be open-source. Hardware is whatever I had laying around, or could buy on eBay in lots, re-selling half or more to recoup costs, with a goal of a net $0 investment on the build. I did have to invest in a litany of books (see Bench References).
+The use case is to setup a home lab, which runs a YARN managed Hadoop/HDFS/Spark cluster accessed through Zeppelin/Rstudio. All software used will be open-source. Hardware is whatever I had laying around, or get cheap.
 
 ## Home Lab Hardware Setup
 1. 1 Laptop; upgraded to 32 GB RAM, 1 TB NVME + 120 GB SSD (Lenovo 81MU007NUS Ideapad S145 14.0" HD Pentium 5405U 2.3GHz)
