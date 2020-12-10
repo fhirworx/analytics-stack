@@ -1,0 +1,102 @@
+version: "3"
+services:
+  traefik:
+    image: "traefik:v2.0.0-rc3"
+    networks:
+      - dev-net
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/admin/t/traefik.toml:/traefik.toml
+      - /home/admin/t/rules.toml:/rules.toml
+      - /home/admin/t/traefik.log:/traefik.log
+      - /home/admin/t/access.log:/access.log
+      - /home/admin/t/acme.json:/acme.json
+      - /home/admin/t/.htpasswd-all:/.htpasswd
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy: 
+        condition: on-failure
+      providers:
+        docker:
+          endpoint: "tcp://127.0.0.1:2377"
+          swarmMode: true
+      labels:
+        - traefik.enable=true
+        - traefik.backend=traefik
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.port=8080
+        - traefik.frontend.rule=Host:traefik.example.com
+        - traefik.docker.network=proxy
+        - traefik.frontend.headers.SSLRedirect=true
+        - traefik.frontend.headers.STSSeconds=315360000
+        - traefik.frontend.headers.browserXSSFilter=true
+        - traefik.frontend.headers.contentTypeNosniff=true
+        - traefik.frontend.headers.forceSTSHeader=true
+        - traefik.frontend.headers.SSLHost=traefik.example.com
+        - traefik.frontend.headers.STSIncludeSubdomains=true
+        - traefik.frontend.headers.STSPreload=true
+        - traefik.frontend.headers.frameDeny=true
+        - traefik.frontend.auth.basic.usersFile=/.htpasswd
+
+  registry: 
+    image: registry:2
+    ports: 
+      - 5050:5000
+    environment: 
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
+      REGISTRY_HTTP_TLS_CERTIFICATE: /certs/cert.pem
+      REGISTRY_HTTP_TLS_KEY: /certs/key.pem
+    volumes: 
+      - /home/admin/r/data:/var/lib/registry
+      - /home/admin/r/certs:/certs
+      - /home/admin/t/:/auth    
+    networks:
+      - dev-net
+    deploy: 
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy: 
+        condition: on-failure
+  web: 
+    image: gitlab/gitlab-ce:latest
+    ports: 
+      - 443:443
+      - 22:22
+    environment: 
+      GITLAB_OMNIBUS_CONFIG: |
+          external_url 'http://gitlab.localhost'
+          registry_external_url 'http://127.0.0.1:5050'
+          registry_nginx['ssl_certificate'] = '/etc/server-cert.pem'
+          registry_nginx['ssl_certificate_key'] = '/etc/server-key.pem'
+    volumes: 
+      - /home/admin/gl/config:/etc/gitlab
+      - /home/admin/gl/logs:/var/log/gitlab
+      - /home/admin/gl/data:/var/opt/gitlab
+    networks: 
+      - dev-net
+    depends_on:
+       - traefik
+       - registry
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitlab.entrypoints=http"
+      - "traefik.routers.gitlab.rule=Host('gitlab.localhost')"
+      - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+
+networks:
+  dev-net:
+    external: true
