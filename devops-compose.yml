@@ -21,17 +21,13 @@ services:
         constraints: [node.role == manager]
       restart_policy: 
         condition: on-failure
-      providers:
-        docker:
-          endpoint: "tcp://127.0.0.1:2377"
-          swarmMode: true
       labels:
         - traefik.enable=true
         - traefik.backend=traefik
         - traefik.backend.loadbalancer.swarm=true
         - traefik.port=8080
-        - traefik.frontend.rule=Host:traefik.example.com
-        - traefik.docker.network=proxy
+        - traefik.frontend.rule=Host:admin.krisc.dev
+        - traefik.docker.network=dev-net
         - traefik.frontend.headers.SSLRedirect=true
         - traefik.frontend.headers.STSSeconds=315360000
         - traefik.frontend.headers.browserXSSFilter=true
@@ -42,6 +38,10 @@ services:
         - traefik.frontend.headers.STSPreload=true
         - traefik.frontend.headers.frameDeny=true
         - traefik.frontend.auth.basic.usersFile=/.htpasswd
+        - traefik.frontend.auth.forward.tls.insecureSkipVerify=true
+        - traefik.docker.network=traefik
+        - "--providers.docker.endpoint=tcp://127.0.0.1:2377"
+        - "--providers.docker.swarmMode=true"
 
   registry: 
     image: registry:2
