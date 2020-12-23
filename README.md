@@ -3,6 +3,8 @@ This is a parking lot for code used in a hobby-only setup of ClearLinux OS on ba
 
 The use case is to setup a home lab, which runs a YARN managed Hadoop/HDFS/Spark cluster accessed through Zeppelin/Rstudio. All software used will be open-source. Hardware is whatever I had laying around, or get cheap.
 
+The end goal is to have an air-gapped environment that enables dev-ops CI/CD pipeline that enables easy use of open-source tools for AI/ML on health care data, all the while conforming with state-of-the-art standards (e.g. FHIR, etc.).
+
 ## Home Lab Hardware Setup
 1. 1 Laptop; upgraded to 32 GB RAM, 1 TB NVME + 120 GB SSD (Lenovo 81MU007NUS Ideapad S145 14.0" HD Pentium 5405U 2.3GHz)
 2. 10 SBCs with 8 GB RAM, 128 SSD https://ark.intel.com/content/www/us/en/ark/products/87740/intel-nuc-kit-nuc5ppyh.html
