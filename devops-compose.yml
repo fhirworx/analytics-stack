@@ -1,62 +1,20 @@
-version: "3"
-services:
-  traefik:
-    image: "traefik:v2.0.0-rc3"
-    networks:
-      - dev-net
-    ports:
-      - "80:80"
-      - "8080:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /home/admin/t/traefik.toml:/traefik.toml
-      - /home/admin/t/rules.toml:/rules.toml
-      - /home/admin/t/traefik.log:/traefik.log
-      - /home/admin/t/access.log:/access.log
-      - /home/admin/t/acme.json:/acme.json
-      - /home/admin/t/.htpasswd-all:/.htpasswd
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]
-      restart_policy: 
-        condition: on-failure
-      labels:
-        - traefik.enable=true
-        - traefik.backend=traefik
-        - traefik.backend.loadbalancer.swarm=true
-        - traefik.port=8080
-        - traefik.frontend.rule=Host:admin.krisc.dev
-        - traefik.docker.network=dev-net
-        - traefik.frontend.headers.SSLRedirect=true
-        - traefik.frontend.headers.STSSeconds=315360000
-        - traefik.frontend.headers.browserXSSFilter=true
-        - traefik.frontend.headers.contentTypeNosniff=true
-        - traefik.frontend.headers.forceSTSHeader=true
-        - traefik.frontend.headers.SSLHost=traefik.example.com
-        - traefik.frontend.headers.STSIncludeSubdomains=true
-        - traefik.frontend.headers.STSPreload=true
-        - traefik.frontend.headers.frameDeny=true
-        - traefik.frontend.auth.basic.usersFile=/.htpasswd
-        - traefik.frontend.auth.forward.tls.insecureSkipVerify=true
-        - traefik.docker.network=traefik
-        - "--providers.docker.endpoint=tcp://127.0.0.1:2377"
-        - "--providers.docker.swarmMode=true"
+version: "3.3"
 
+services:
   registry: 
     image: registry:2
     ports: 
       - 5050:5000
     environment: 
       REGISTRY_AUTH: htpasswd
-      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
       REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
       REGISTRY_HTTP_TLS_CERTIFICATE: /certs/cert.pem
       REGISTRY_HTTP_TLS_KEY: /certs/key.pem
     volumes: 
-      - /home/admin/r/data:/var/lib/registry
-      - /home/admin/r/certs:/certs
-      - /home/admin/t/:/auth    
+      - /home/admin/dev/r/data:/var/lib/registry
+      - /home/admin/dev/r/certs:/certs
+      - /home/admin/dev/t/:/auth    
     networks:
       - dev-net
     deploy: 
@@ -65,21 +23,91 @@ services:
         constraints: [node.role == manager]
       restart_policy: 
         condition: on-failure
+
+  traefik:
+    container_name: traefik
+    image: traefik:v2.3
+    ports: 
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: host
+    networks:
+      - dev-net
+    deploy:
+      placement:
+        constraints:
+          - node.labels.dev-net.traefik-public-certificates == true
+    command:
+      - "--providers.docker"
+      #- "--providers.docker.constraints=Label(`traefik.constraint-label`, `dev-net`)
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=true"
+      - "--providers.docker.network=dev-net"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.email=${EMAIL}"
+      - "--certificatesresolvers.le.acme.storage=/certificates/acme.json"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--accesslog"
+      - "--log"
+      - "--api.insecure"
+      - "--serversTransport.insecureSkipVerify=true"
+    volumes: 
+      #traefik-public-certificates:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/home/admin/dev/t-pub:/etc/certs/"
+      - "/home/admin/dev/t/certs-traefik.yaml:/etc/traefik/dynamic/certs-traefik.yaml"
+        
+    networks:
+      - dev-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.dev-net.traefik-public-certificates == true
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dev-net
+      - traefik.constraint-label=dev-net
+      - traefik.http.routers.http-catchall.entrypoints=http
+      - traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.dev-net.entrypoints=web
+      - traefik.http.routers.dev-net.tls=true
+      - traefik.http.routers.dev-net.entrypoints=websecure
+      - traefik.http.routers.dev-net.rule=Host(`msr.krisc.dev`) && Path('/gitlab')
+      - traefik.http.routers.dev-net.middlewares=middlewares-basic-auth@file
+      - traefik.http.routers.dev-net-https.tls.certresolver=le
+      - traefik.http.routers.dev-net-https.middlewares=admin-auth
+      - traefik.http.services.dev-net.loadbalancer.server.port=8080
   web: 
     image: gitlab/gitlab-ce:latest
     ports: 
-      - 443:443
-      - 22:22
+      - :22
+      - :80
+      - :443
     environment: 
       GITLAB_OMNIBUS_CONFIG: |
-          external_url 'http://gitlab.localhost'
+          external_url 'http://msr.krisc.dev/gitlab'
           registry_external_url 'http://127.0.0.1:5050'
           registry_nginx['ssl_certificate'] = '/etc/server-cert.pem'
           registry_nginx['ssl_certificate_key'] = '/etc/server-key.pem'
     volumes: 
-      - /home/admin/gl/config:/etc/gitlab
-      - /home/admin/gl/logs:/var/log/gitlab
-      - /home/admin/gl/data:/var/opt/gitlab
+      - /home/admin/dev/gl/config:/etc/gitlab
+      - /home/admin/dev/gl/logs:/var/log/gitlab
+      - /home/admin/dev/gl/data:/var/opt/gitlab
     networks: 
       - dev-net
     depends_on:
@@ -92,11 +120,19 @@ services:
       restart_policy:
         condition: on-failure
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.gitlab.entrypoints=http"
-      - "traefik.routers.gitlab.rule=Host('gitlab.localhost')"
-      - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+        - "traefik.enable=true"
+        - "traefik.http.routers.web.rule=Host(`msr.krisc.dev`) && Path ('/gitlab')"
+        - "traefik.http.routers.web.entrypoints=web"
+        - "traefik.http.routers.dev-net.middlewares=middlewares-basic-auth@file"
+        - "traefik.http.routers.dev-net-https.tls.certresolver=le"
+        - "traefik.http.routers.dev-net-https.middlewares=admin-auth"
+        - "traefik.http.routers.dev-net.entrypoints=websecure"
+        - "traefik.http.services.dev-net.loadbalancer.server.port=8080"
 
+volumes:
+  traefik-public-certificates:
+    driver: local
+ 
 networks:
   dev-net:
     external: true
