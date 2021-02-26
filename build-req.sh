@@ -1,21 +1,10 @@
-#Set Hostname
-sudo hostnamectl set-hostname msr
-#Allow user to run all as root
-sudo usermod -G wheel -a $USER
-#Add Pre-requisites
-sudo swupd bundle-add buildreq-spark nginx jupyter conda java11-basic
-sudo updatedb
-#sudo pip3 install for transferring keys
-systemctl enable --now sshd.service
-sudo pip3 install pssh
-#Set SSH Keys
-cat /dev/zero | ssh-keygen -q -N "" > /dev/null
-cat ~/.ssh/id_rsa.pub | pssh -h ips.txt -l remoteuser -A -I -i 'umask 077; mkdir -p ~/.ssh; afile=~/.ssh/authorized_keys; cat - >> $afile; sort -u $afile -o $afile'
-mkdir -p /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes} && sudo chown -R ${USER} /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local},zep/notes}
-sudo mkdir -p /var/log/{hadoop/pid,spark,zep/pid} && sudo chown -R ${USER} /var/log/{hadoop/pid,spark,zep/pid}
-sudo mkdir -p /etc/{hadoop,spark,zep} && sudo chown -R ${USER} /etc/{hadoop,spark,zep}
+swupd bundle-add buildreq-spark
+updatedb
+mkdir -p /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local}} && chown -R ${USER} /opt/{hadoop,hdfs/{namenode,datanode},spark,yarn/{logs,local}}
+mkdir -p /var/log/{hadoop/pid,spark,zep/pid} && sudo chown -R ${USER} /var/log/{hadoop/pid,spark}
+mkdir -p /etc/{hadoop,spark,zep} && sudo chown -R ${USER} /etc/{hadoop,spark}
 #add env vars
-sudo tee -a /etc/profile <<'EOF'
+tee -a /etc/profile <<'EOF'
 export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk
 export JAVA="$JAVA_HOME/bin/java"
 export JAVAC="$JAVA_HOME/bin/javac"
@@ -42,25 +31,15 @@ export SPARK_HOME="$DEV_HOME/spark"
 export SPARK_CONF_DIR=/etc/spark
 export YARN_RESOURCEMANAGER_USER=${USER}
 export YARN_NODEMANAGER_USER=${USER}
-export ZEPPELIN_HOME="$DEV_HOME/zep"
-export PYSPARK_PYTHON="$SPARK_HOME/python/pyspark"
-export PYTHONPATH="$PYTHONPATH:$SPARK_HOME/python:/usr/bin/ipython3"
 export R_HOME=/usr/lib64/R
 export R_LIBS_USER=/opt/r
 export PATH="$JAVA_HOME/bin:$HADOOPHOME/sbin:$HADOOPHOME/bin:$SPARK_HOME/bin:$SPARK_HOME/sbin:$ZEPPELIN_HOME/bin:$R_HOME:$PATH"
 EOF
-popd
-#DARS config
-sudo tee -a /etc/dars.ld.so.conf <<'EOF'
-/usr/lib64/haswell/avx512_1
-EOF
-sudo ldconfig
-#Get Spark
 cd $HOME
-wget https://downloads.apache.org/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
-tar xvf spark-3.0.0-bin-hadoop2.7.tgz
-rm spark-3.0.0-bin-hadoop2.7.tgz
-mv spark-3.0.0-bin-hadoop2.7 $DEV_HOME/spark
+wget https://downloads.apache.org/spark/spark-3.0.2/spark-3.0.2-bin-hadoop3.2.tgz
+tar xvf spark-3.0.2/spark-3.0.2-bin-hadoop3.2.tgz
+rm spark-3.0.2/spark-3.0.2-bin-hadoop3.2.tgz
+mv spark-3.0.2-bin-hadoop3.2 $DEV_HOME/spark
 #Spark
 #set system unit file master
 sudo -i
@@ -231,17 +210,17 @@ sudo cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
 EOF
 #workers /etc/hadoop/workers
 sudo cat > $HADOOP_CONF_DIR/workers << EOF
-msr
-nu1
-nu2
-nu3
-nu4
-nu5
-nu6
-nu7
-nu8
-nu9
-nu10
+rig.krisc.dev
+nuc2.krisc.dev
+nuc4.krisc.dev
+nuc6.krisc.dev
+nuc7.krisc.dev
+nuc8.krisc.dev
+nuc9.krisc.dev
+nuc10.krisc.dev
+nuc11.krisc.dev
+nuc12.krisc.dev
+nuc13.krisc.dev
 EOF
 sudo cp $HADOOPHOME/log4j.properties /etc/hadoop
 sudo cat > $HADOOP_CONF_DIR/hadoop-env.sh << EOF
@@ -257,11 +236,11 @@ export YARN_NODEMANAGER_USER=${USER}
 EOF
 #format NameNode
 ssh-copy-id localhost
-$HADOOPHOME/bin/hdfs namenode -format
+$HADOOP_HOME/bin/hdfs namenode -format
 #start DFS in NameNode @9870 and Data Nodes with...
-$HADOOPHOME/sbin/start-dfs.sh
+$HADOOP_HOME/sbin/start-dfs.sh
 #start YARN daemons @8088
-$HADOOPHOME/sbin/start-yarn.sh
+$HADOOP_HOME/sbin/start-yarn.sh
 #setup hadoop system unit
 sudo -i
 cat > /etc/systemd/system/hadoop.service << EOF
@@ -281,145 +260,3 @@ Environment=JAVA_HOME=$JAVA_HOME
 Environment=HADOOP_COMMON_HOME=$HADOOP_COMMON_HOME
 TimeoutStartSec=2min
 Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-#zeppelin
-cd $HOME
-wget https://downloads.apache.org/zeppelin/zeppelin-0.9.0-preview1/zeppelin-0.9.0-preview1-bin-all.tgz
-tar xvf zeppelin-0.9.0-preview1-bin-all.tgz
-rm zeppelin-0.9.0-preview1-bin-all.tgz
-mv -v ./zeppelin-0.9.0-preview1-bin-all ./zeppelin
-mv -v ./zeppelin/* $ZEPPELIN_HOME
-cat > $ZEPPELIN_HOME/conf/zeppelin-env.sh << EOF
-export JAVA_HOME=$JAVA_HOME
-export MASTER=yarn-cluster
-export ZEPPELIN_PORT=8888
-export SPARK_HOME=$SPARK_HOME
-export SPARK_CONF_DIR=$SPARK_CONF_DIR
-export PYSPARK_PYTHON=$PYSPARK_PYTHON
-export PYTHONPATH=$PYTHONPATH
-export HADOOP_CONF_DIR=$HADOOP_CONF_DIR
-export ZEPPELIN_NOTEBOOK_DIR=$ZEPPELIN_NOTEBOOK_DIR
-export ZEPPELIN_SERVER_DEFAULT_DIR_ALLOWED=true
-export ZEPPELIN_NOTEBOOK_DIR=$ZEPPELIN_HOME/notes
-export ZEPPELIN_INTERPRETER_DIR=$ZEPPELIN_HOME/interpreter
-EOF
-#set system unit file for zeppelin
-sudo -i
-cat > /etc/systemd/system/zeppelin.service << EOF
-[Unit]
-Description=Zeppelin service
-After=syslog.target network.target
-
-[Service]
-Type=forking
-ExecStart=$ZEPPELIN_HOME/bin/zeppelin-daemon.sh --config /etc/zep start
-ExecStop=$ZEPPELIN_HOME/bin/zeppelin-daemon.sh stop
-ExecReload=$ZEPPELIN_HOME/bin/zeppelin-daemon.sh reload
-User=${USER}
-Group=${USER}
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo jupyter notebook --generate-config
-#f/u check SPARKR_RLIBDIR
-#Zotero
-wget https://www.zotero.org/download/client/dl?channel=release&platform=linux-x86_64&version=5.0.89
-tar xvf Zotero-5.0.89_linux-x86_64.tar.bz2
-mv Zotero-5.0.89_linux-x86_64 $DEV_HOME/zotero
-rm -rf Zotero-5.0.89_linux-x86_64.tar.bz2
-cd $DEV_HOME
-./zotero/set_launcher_icon
-./zotero/zotero
-#get firefox extension
-#fu figure out path to install
-wget https://download.zotero.org/connector/firefox/release/Zotero_Connector-5.0.68.xpi
-#fu figure out automation of BetterBibtex
-wget https://github.com/retorquere/zotero-better-bibtex/releases/download/v5.2.47/zotero-better-bibtex-5.2.47.xpi
-#fu figure out automation of MarkdownZotero
-wget https://github.com/fei0810/markdownhere4zotero/raw/master/markdownhere4zotero_kaopubear_190914.xpi
-#fu figure out automation of ZotFile plugin
-wget https://github.com/jlegewie/zotfile/releases/download/v5.0.16/zotfile-5.0.16-fx.xpi
-#fu append existing file ~/Zotero/locate/engine.json
-[
-    {
-        "name": "Sci-Hub Lookup",
-        "alias": "Sci-Hub",
-        "icon": "null",
-        "_urlTemplate": "https://sci-hub.tw/{z:DOI}",
-        "description": "Sci-Hub full text PDF search",
-        "hidden": false,
-        "_urlParams": [],
-        "_urlNamespaces": {
-            "z": "http://www.zotero.org/namespaces/openSearch#",
-            "": "http://a9.com/-/spec/opensearch/1.1/"
-        },
-        "_iconSourceURI": "http://sci-hub.tw/favicon.ico"
-    }
-]
-#setup mixer
-mkdir ~/mixer
-cd ~/mixer
-sudo swupd bundle-add mixer
-mixer init
-#~/mixer/buidler.conf
-sudo tee -a ~/mixer/builder.conf >> EOF
-CONTENTURL="http://${HOSTNMAE -I}"
-VERSIONURL="http://${HOSTNAME -I}"
-EOF
-
-#Make Nginx for Mixer/Bundle Creation
-sudo mkdir -p /var/www
-sudo ln -sf $HOME/mixer/update/www /var/www/mixer
-sudo mkdir -p  /etc/nginx/conf.d
-sudo cp -f /usr/share/nginx/conf/nginx.conf.example /etc/nginx/nginx.conf
-#Grant user permissions
-sudo tee -a /etc/nginx/nginx.conf << EOF
-user $USER;
-EOF
-#Configure the mixer update server
-sudo tee /etc/nginx/conf.d/mixer-server.conf << EOF
-server {
-  server_name localhost;
-  location / {
-    root /var/www/mixer;
-    autoindex on;
-  }
-}
-EOF
-#Restart the daemon, enable nginx on boot, and start the service.
-sudo systemctl daemon-reload
-sudo systemctl enable nginx --now
-#Make top-level directory to house stack
-mkdir ~/stack && pushd $_
-#Place Spark
-mkdir -p spark/usr/bin && pushd $_
-# create helloclear.sh script
-cat > helloclear.sh << EOF
-#!/bin/bash
-echo "Hello Clear!"
-EOF
-# make script executable
-chmod +x helloclear.sh
-popd
-
-#install autospec
-sudo swupd bundle-add os-clr-on-clr
-curl -O https://raw.githubusercontent.com/clearlinux/common/master/user-setup.sh
-chmod +x user-setup.sh
-./user-setup.sh
-git config --global user.email "admin@krisc.dev"
-git config --global user.name "krisc"
-
-#Work in progres... figure out how to bundle above
-#krisc@nu1~/mixer $
-mixer bundle create spark --local
-echo "content($SPARK_HOME/)" >> local-bundles/spark
-mixer bundle create hadoop --local
-echo "content($HADOOPHOME/)" >> local-bundles/hadoop
-mixer bundle create zeppelin --local
-echo "content($ZEPPELIN_HOME/)" >> local-bundles/zeppelin
