@@ -38,7 +38,7 @@ cat > $HADOOP_CONF_DIR/hdfs-site.xml << EOF
 	</property>
 	<property>
 		<name>dfs.hosts</name>
-		<value>w1,w2,w3,w4,w5,w6,w7,w8,w9,wa,lt,mgr</value>
+		<value>file:///opt/hadoop/etc/hadoop/dfshosts.json</value>
 	</property>
 	<property>
 		<name>dfs.namenode.datanode.registration.ip-hostname-check</name>
