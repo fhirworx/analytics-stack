@@ -1,5 +1,4 @@
-export SPARK_CONF_DIR=/opt/spark/conf
-export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+set SPARK_CONF_DIR=/opt/spark/conf && set HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
 cd SPARK_CONF_DIR && rm spark-defaults.conf 
 cat > $SPARK_CONF_DIR/spark-defaults.conf << EOF
 spark.master                     	yarn
