@@ -1,7 +1,7 @@
-export $SPARK_CONF_DIR=/opt/spark/conf
-export $HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
-cd $SPARK_CONF_DIR && sudo rm spark-defaults.conf 
-sudo cat > $SPARK_CONF_DIR/spark-defaults.conf << EOF
+export SPARK_CONF_DIR=/opt/spark/conf
+export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+cd SPARK_CONF_DIR && rm spark-defaults.conf 
+cat > $SPARK_CONF_DIR/spark-defaults.conf << EOF
 spark.master                     	yarn
 spark.submit.deployMode           cluster
 spark.eventLog.enabled           	true
@@ -20,9 +20,9 @@ spark.executorEnv.YARN_CONF_DIR=/opt/hadoop/etc/hadoop
 spark.driver.extraJavaOptions -Dio.netty.tryReflectionSetAccessible=true -Djava.library.path=/opt/hadoop/lib/native
 spark.executor.extraJavaOptions -Dio.netty.tryReflectionSetAccessible=true -Djava.library.path=/opt/hadoop/lib/native
 EOF
-cd $HADOOP_CONF_DIR && sudo rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml workers hadoop-env.sh
+cd $HADOOP_CONF_DIR && rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml workers hadoop-env.sh
 #Hadoop core-site
-sudo cat > $HADOOP_CONF_DIR/core-site.xml << EOF
+cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 <configuration>
 	<property>
 		<name>fs.defaultFS</name>
@@ -37,7 +37,7 @@ sudo cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 </configuration>
 EOF
 #HDFS
-sudo cat > $HADOOP_CONF_DIR/hdfs-site.xml << EOF
+cat > $HADOOP_CONF_DIR/hdfs-site.xml << EOF
 <configuration>
 	<property>
 		<name>dfs.namenode.name.dir</name>
@@ -51,7 +51,7 @@ sudo cat > $HADOOP_CONF_DIR/hdfs-site.xml << EOF
 	</property>
 	<property>
 		<name>dfs.replication</name>
-		<value>1</value></property>
+		<value>10</value></property>
 	<property>
 		<name>dfs.permissions</name>
 		<value>false</value>
