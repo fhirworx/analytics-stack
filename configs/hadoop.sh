@@ -115,5 +115,45 @@ sudo cat > workers << EOF
 192.168.1.18 wa
 EOF
 sudo cat > $HADOOP_CONF_DIR/hadoop-env.sh << EOF
+[
+  {
+    "hostName": "msr"
+  },
+  {
+    "hostName": "w1"
+  },
+  {
+    "hostName": "w2"
+  },
+  {
+    "hostName": "w3"
+  }
+  {
+    "hostName": "w4"
+  },
+  {
+    "hostName": "w5"
+  },
+  {
+    "hostName": "w6"
+  },
+  {
+    "hostName": "w7"
+  }
+  {
+    "hostName": "w8"
+  },
+  {
+    "hostName": "w9"
+  },
+  {
+    "hostName": "wa"
+  },
+  {
+    "hostName": "lt"
+  }
+]
+EOF
+sudo cat > $HADOOP_CONF_DIR/hadoop-env.sh << EOF
 export JAVA_HOME=$JAVA_HOME
 EOF
