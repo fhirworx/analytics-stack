@@ -1,5 +1,5 @@
 export HADOOP_CONF_DIR=$(pwd)
-rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml workers hadoop-env.sh
+rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml workers hadoop-env.sh *.example *.template
 #Hadoop core-site
 cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 <configuration>
