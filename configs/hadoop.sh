@@ -1,25 +1,5 @@
-set SPARK_CONF_DIR=/opt/spark/conf && set HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
-cd SPARK_CONF_DIR && rm spark-defaults.conf 
-cat > $SPARK_CONF_DIR/spark-defaults.conf << EOF
-spark.master                     	yarn
-spark.submit.deployMode           cluster
-spark.eventLog.enabled           	true
-spark.eventLog.dir               	hdfs://namenode:8021/spark-logs
-spark.serializer                 	org.apache.spark.serializer.KryoSerializer
-spark.executor.userClassPathFirst	true
-spark.pyspark.python			/usr/bin/ipython3
-#spark.driver.log.dfsDir	
-spark.yarn.jars /opt/spark/jars
-spark.yarn.populateHadoopClasspath false
-yarn.nodemanager.local-dirs /opt/hadoop/etc/hadoop
-spark.driverEnv.JAVA_HOME=/opt/jdk-11
-spark.driverEnv.YARN_CONF_DIR=/opt/hadoop/etc/hadoop
-spark.executorEnv.JAVA_HOME=/opt/jdk-11
-spark.executorEnv.YARN_CONF_DIR=/opt/hadoop/etc/hadoop
-spark.driver.extraJavaOptions -Dio.netty.tryReflectionSetAccessible=true -Djava.library.path=/opt/hadoop/lib/native
-spark.executor.extraJavaOptions -Dio.netty.tryReflectionSetAccessible=true -Djava.library.path=/opt/hadoop/lib/native
-EOF
-cd $HADOOP_CONF_DIR && rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml workers hadoop-env.sh
+export HADOOP_CONF_DIR=$(pwd)
+rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml workers hadoop-env.sh
 #Hadoop core-site
 cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 <configuration>
