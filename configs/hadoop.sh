@@ -20,7 +20,7 @@ spark.executorEnv.YARN_CONF_DIR=/opt/hadoop/etc/hadoop
 spark.driver.extraJavaOptions -Dio.netty.tryReflectionSetAccessible=true -Djava.library.path=/opt/hadoop/lib/native
 spark.executor.extraJavaOptions -Dio.netty.tryReflectionSetAccessible=true -Djava.library.path=/opt/hadoop/lib/native
 EOF
-cd $HADOOP_CONF_DIR && sudo rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml hadoop-env.sh
+cd $HADOOP_CONF_DIR && sudo rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml workers hadoop-env.sh
 #Hadoop core-site
 sudo cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 <configuration>
