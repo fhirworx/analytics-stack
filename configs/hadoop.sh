@@ -1,3 +1,4 @@
+#cd to hadoop conf, wget raw file, chmod +x hadoop.sh, bash hadoop.sh
 export HADOOP_CONF_DIR=$(pwd)
 rm core-site.xml hdfs-site.xml mapred-site.xml yarn-site.xml workers hadoop-env.sh *.example *.template
 #Hadoop core-site
