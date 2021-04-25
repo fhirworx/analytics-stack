@@ -6,7 +6,7 @@ cat > $HADOOP_CONF_DIR/core-site.xml << EOF
 <configuration>
 	<property>
 		<name>fs.defaultFS</name>
-		<value>hdfs://msr:9820/</value>
+		<value>hdfs://192.168.1.157:9820/</value>
 		<description>NameNode URI</description>
 	</property>
 	<property>
@@ -31,18 +31,18 @@ cat > $HADOOP_CONF_DIR/hdfs-site.xml << EOF
 	</property>
 	<property>
 		<name>dfs.replication</name>
-		<value>10</value></property>
+		<value>1</value></property>
 	<property>
 		<name>dfs.permissions</name>
 		<value>false</value>
 	</property>
 	<property>
-		<name>dfs.datanode.use.datanode.hostname</name>
-		<value>true</value>
+		<name>dfs.hosts</name>
+		<value>w1,w2,w3,w4,w5,w6,w7,w8,w9,wa,lt,mgr</value>
 	</property>
 	<property>
 		<name>dfs.namenode.datanode.registration.ip-hostname-check</name>
-		<value>false</value>
+		<value>true</value>
 	</property>
 </configuration>
 EOF
@@ -56,12 +56,12 @@ sudo cat > $HADOOP_CONF_DIR/mapred-site.xml << EOF
 	</property>
 	<property>
 		<name>mapreduce.jobhistory.address</name>
-		<value>msr:10020</value>
+		<value>192.168.1.157:10020</value>
 		<description>Default port is 10020.</description>
 	</property>
 	<property>
 		<name>mapreduce.jobhistory.webapp.address</name>
-		<value>msr:19888</value>
+		<value>192.168.1.157:19888</value>
 		<description>Default port is 19888.</description>
 	</property>
 	<property>
@@ -103,18 +103,16 @@ sudo cat > $HADOOP_CONF_DIR/yarn-site.xml << EOF
 EOF
 #workers /etc/hadoop/workers
 sudo cat > workers << EOF
-msr
-w1
-w2
-w3
-w4
-w5
-w6
-w7
-w8
-w9
-wa
-lt
+192.168.1.157 mgr
+192.168.1.7 w1
+192.168.1.8 w3
+192.168.1.9 w4
+192.168.1.13 w5
+192.168.1.14 w6
+192.168.1.15 w7
+192.168.1.16 w8
+192.168.1.17 w9
+192.168.1.18 wa
 EOF
 sudo cat > $HADOOP_CONF_DIR/hadoop-env.sh << EOF
 export JAVA_HOME=$JAVA_HOME
