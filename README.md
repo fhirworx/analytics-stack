@@ -6,9 +6,9 @@ The use case is to setup a home lab, which runs a YARN managed Hadoop/HDFS/Spark
 The end goal is to have an air-gapped environment that enables dev-ops CI/CD pipeline that enables easy use of open-source tools for AI/ML on health care data, all the while conforming with state-of-the-art standards (e.g. FHIR, etc.).
 
 ## Home Lab Hardware Setup
-1. 1 Laptop; upgraded to 32 GB RAM, 1 TB NVME + 120 GB SSD (Lenovo 81MU007NUS Ideapad S145 14.0" HD Pentium 5405U 2.3GHz)
+1. 1 Laptop; upgraded to 32 GB RAM, 1 TB NVME + 2TB SSD (ClearLinux OS on an old Lenovo 81MU007NUS Ideapad S145 14.0" HD Pentium 5405U 2.3GHz)
 2. 10 SBCs with 8 GB RAM, 128 SSD https://ark.intel.com/content/www/us/en/ark/products/87740/intel-nuc-kit-nuc5ppyh.html
-3. 1 GPU node; a recycled GIGABYTE GAH110D3A LGA 1151 Intel Motherboard with 5 NVIDIA Tesla K20x co-processors
+3. 1 GPU node; NVIDIA RTX3070, 64 GB RAM, 4x 2TB SSD, 1x Sabrient Rocket 2TB, Ryzen 9 5950X
 
 ## Sources of Inspiration
 1. Anchormen: https://anchormen.nl/blog/big-data-services/spark-and-hdfs-with-kubernetes/
